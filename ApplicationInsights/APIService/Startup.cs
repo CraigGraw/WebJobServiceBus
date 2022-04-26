@@ -1,4 +1,6 @@
+using AzureClient;
 using AzureClient.ServiceBus;
+using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +26,7 @@ namespace APIService
             string instrumentationKey = Configuration["APPINSIGHTS:INSTRUMENTATIONKEY"];
             if (!string.IsNullOrWhiteSpace(instrumentationKey))
             {
+                services.AddSingleton<ITelemetryInitializer>(new ServiceBusTelemetryInitializer());
                 services.AddApplicationInsightsTelemetry(instrumentationKey);
             }
 

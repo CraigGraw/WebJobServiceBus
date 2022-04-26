@@ -1,7 +1,10 @@
 ﻿using System;
 using System.IO;
 using System.Threading.Tasks;
+using AzureClient;
 using AzureClient.ServiceBus;
+using Microsoft.ApplicationInsights.Extensibility;
+using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -74,15 +77,15 @@ namespace WebJobApp
 
         private static async Task RunAsync()
         {
+            string instrumentationKey = _configuration["APPINSIGHTS:INSTRUMENTATIONKEY"];
+
             HostBuilder builder = new HostBuilder();
             builder.UseEnvironment("Development")
-                .ConfigureWebJobs().ConfigureLogging((hostBuilderContext, loggingBuilder) =>
+                .ConfigureLogging((hostBuilderContext, loggingBuilder) =>
                 {
                     loggingBuilder.ClearProviders();
                     loggingBuilder.AddLog4Net();
 
-
-                    string instrumentationKey = _configuration["APPINSIGHTS:INSTRUMENTATIONKEY"];
                     if (!string.IsNullOrWhiteSpace(instrumentationKey))
                     {
                         loggingBuilder.AddApplicationInsightsWebJobs(o =>
@@ -90,11 +93,18 @@ namespace WebJobApp
                         );
                     }
                 })
+                .ConfigureWebJobs()
                 .ConfigureServices((hostContext, services) =>
                 {
                     ServiceBusSettings serviceBusSettings = _configuration.GetSection("ServiceBusSettings").Get<ServiceBusSettings>();
 
                     RegisterDependencyInjection(services, serviceBusSettings);
+
+                    if (!string.IsNullOrWhiteSpace(instrumentationKey))
+                    {
+                        services.AddSingleton<ITelemetryInitializer>(new ServiceBusTelemetryInitializer());
+                        services.AddApplicationInsightsTelemetry(instrumentationKey);
+                    }
                 });
 
             IHost host = builder.Build();
